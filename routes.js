@@ -164,9 +164,32 @@ router.post('/users', [
 router.get('/courses', asyncHandler(async (req, res) => {
   
   const courses = await Course.findAll({ attributes: ['id', 'title', 'description', 'estimatedTime', 'materialsNeeded', 'userId'], order: [["createdAt", "DESC"]] });
+
+  const coursesJSON = JSON.parse(JSON.stringify(courses));
+  
+  coursesJSON.map(async (course) => {
+    
+    const courseUser = await User.findByPk(course.userId);
+
+    let courseUserString;
+
+    if (courseUser === null)
+    {
+      courseUserString = "No Instructor Listed";
+    }
+    else
+    {
+      courseUserString = courseUser.firstName + " " + courseUser.lastName;
+    }
+
+    delete course.userId;
+
+    course.user = courseUserString;
+  
+  });
   
   
-  res.json(courses);
+  res.json(coursesJSON);
 }));
 
 
@@ -176,14 +199,34 @@ router.get('/courses', asyncHandler(async (req, res) => {
 router.get('/courses/:id', asyncHandler(async (req, res) => {
   
   const course = await Course.findByPk(req.params.id, { attributes: ['id', 'title', 'description', 'estimatedTime', 'materialsNeeded', 'userId']});
-  
+
   if(course === null)
   {
     res.status(400).json({ error: "No course exists with the given ID." });
   }
   else
   {
-    res.json(course);
+    const courseUser = await User.findByPk(course.userId);
+
+    const courseJSON = course.toJSON();
+
+    let courseUserString;
+
+    if (courseUser === null)
+    {
+      courseUserString = "(Instructor Information Not Available)";
+      
+    }
+    else
+    {
+      courseUserString = courseUser.firstName + " " + courseUser.lastName;
+    }
+
+    delete courseJSON.userId;
+
+    courseJSON.user = courseUserString;
+
+    res.json(courseJSON);
   }
 }));
 
