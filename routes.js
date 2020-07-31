@@ -166,30 +166,30 @@ router.get('/courses', asyncHandler(async (req, res) => {
   const courses = await Course.findAll({ attributes: ['id', 'title', 'description', 'estimatedTime', 'materialsNeeded', 'userId'], order: [["createdAt", "DESC"]] });
 
   const coursesJSON = JSON.parse(JSON.stringify(courses));
-  
-  coursesJSON.map(async (course) => {
+
+  const coursesWithUser = await Promise.all(coursesJSON.map(async(course) => {
     
     const courseUser = await User.findByPk(course.userId);
 
-    let courseUserString;
+    let courseUserString = "";
 
     if (courseUser === null)
     {
-      courseUserString = "No Instructor Listed";
+      courseUserString = "(Instructor Information Not Available)";
     }
     else
     {
       courseUserString = courseUser.firstName + " " + courseUser.lastName;
     }
 
-    delete course.userId;
-
     course.user = courseUserString;
+
+    return course;
   
-  });
+  }));
+
+  res.json(coursesWithUser);
   
-  
-  res.json(coursesJSON);
 }));
 
 
@@ -222,8 +222,6 @@ router.get('/courses/:id', asyncHandler(async (req, res) => {
       courseUserString = courseUser.firstName + " " + courseUser.lastName;
     }
 
-    delete courseJSON.userId;
-
     courseJSON.user = courseUserString;
 
     res.json(courseJSON);
@@ -231,7 +229,7 @@ router.get('/courses/:id', asyncHandler(async (req, res) => {
 }));
 
 
-//posts a new course and returns no content - basically working, need to finish
+//posts a new course and returns no content
 router.post('/courses', authenticateUser, [
   check('title')
     .exists({ checkNull: true, checkFalsy: true })
@@ -259,7 +257,7 @@ router.post('/courses', authenticateUser, [
 
     const id = course.id;
 
-    res.location(path.join(__dirname, 'api', 'courses', id.toString()));
+    res.location('/api/courses/' + id.toString());
 
     // Set the status to 201 Created and end the response.
     res.status(201).end();
@@ -269,8 +267,16 @@ router.post('/courses', authenticateUser, [
 }));
 
 
-//Updates a course and returns no content - basically working, may need to add more
-router.put('/courses/:id', authenticateUser, asyncHandler(async(req, res) => {
+//Updates a course and returns no content
+router.put('/courses/:id', [
+  check('title')
+    .exists({ checkNull: true, checkFalsy: true })
+    .withMessage('Please provide a value for "title"'),
+  check('description')
+    .exists({ checkNull: true, checkFalsy: true })
+    .withMessage('Please provide a value for "description"')
+  
+], authenticateUser, asyncHandler(async(req, res) => {
  
   // Attempt to get the validation result from the Request object.
   const errors = validationResult(req);
